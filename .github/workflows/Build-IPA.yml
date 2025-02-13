@@ -28,12 +28,6 @@ jobs:
             pod install
           fi
 
-      - name: Update Deployment Target in project.pbxproj
-         run: |
-           cd ios
-           find . -name 'project.pbxproj' -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 8.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/g' {} +
-           cat Runner.xcodeproj/project.pbxproj | grep IPHONEOS_DEPLOYMENT_TARGET
-
       - name: Build and Archive Project
         run: |
           cd ios
