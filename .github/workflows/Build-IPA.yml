@@ -3,17 +3,15 @@ name: Build Unsigned IPA
 on:
   push:
     branches:
-      - main  # Change this to your branch
+      - main  # Runs on push to main branch
   pull_request:
-  workflow_dispatch:
+  workflow_dispatch:  # ✅ Enables manual trigger
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-
-    
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -25,8 +23,14 @@ jobs:
           cd ios
           if [ -f "Podfile" ]; then
             brew install cocoapods
-            pod install
+            pod install --repo-update
           fi
+
+      - name: 🔧 Update iOS Deployment Target
+        run: |
+          cd ios
+          find . -name 'project.pbxproj' -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 8.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/g' {} +
+          cat Runner.xcodeproj/project.pbxproj | grep IPHONEOS_DEPLOYMENT_TARGET
 
       - name: Build and Archive Project
         run: |
