@@ -1,0 +1,55 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches:
+      - main  # Change this if needed
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Use Latest Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Navigate to iOS Directory
+        run: cd ios
+
+      - name: Resolve Swift Package Dependencies
+        working-directory: ios
+        run: xcodebuild -resolvePackageDependencies -workspace Runner.xcworkspace
+
+      - name: Clean Derived Data
+        run: rm -rf ~/Library/Developer/Xcode/DerivedData/*
+
+      - name: Build and Archive Project
+        working-directory: ios
+        run: |
+          xcodebuild clean archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -archivePath $GITHUB_WORKSPACE/ios/build/App.xcarchive \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Export Unsigned IPA
+        working-directory: ios
+        run: |
+          mkdir -p output
+          xcodebuild -exportArchive \
+            -archivePath $GITHUB_WORKSPACE/ios/build/App.xcarchive \
+            -exportPath output \
+            -exportOptionsPlist exportOptions.plist \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Upload IPA as an Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unsigned-IPA
+          path: ios/output/*.ipa
