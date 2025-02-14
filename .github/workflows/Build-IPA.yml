@@ -1,60 +1,70 @@
-name: Build Unsigned IPA
+name: Build iOS App
 
 on:
   push:
     branches:
-      - main  # Runs on push to main branch
+      - main
   pull_request:
-  workflow_dispatch:  # ✅ Enables manual trigger
+    branches:
+      - main
 
 jobs:
-  build:
+  build-ios:
     runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
 
-      - name: Install Dependencies (if needed)
-        run: |
-          cd ios
-          if [ -f "Podfile" ]; then
-            brew install cocoapods
-            pod install --repo-update
-          fi
+      - name: Enable Flutter iOS
+        run: flutter config --enable-ios
 
-      - name: 🔧 Update iOS Deployment Target
-        run: |
-          cd ios
-          find . -name 'project.pbxproj' -exec sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 8.0;/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/g' {} +
-          cat Runner.xcodeproj/project.pbxproj | grep IPHONEOS_DEPLOYMENT_TARGET
+      - name: Get Flutter Dependencies
+        run: flutter pub get
 
-      - name: Build and Archive Project
+      - name: Upgrade Dependencies
+        run: flutter pub upgrade
+
+      - name: Install CocoaPods
         run: |
-          cd ios
-          xcodebuild clean archive \
-            -workspace Runner.xcworkspace \
+          sudo gem install cocoapods
+          cd ios && pod install && cd ..
+
+      - name: Set Up Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          sudo xcodebuild -version
+
+      - name: Clean and Build Flutter iOS
+        run: |
+          flutter clean
+          flutter build ios --no-codesign --release
+
+      - name: Compile Unsigned IPA
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
-            -archivePath $GITHUB_WORKSPACE/build/App.xcarchive \
             -sdk iphoneos \
             -configuration Release \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+            build CODE_SIGNING_ALLOWED=NO
 
-      - name: Export Unsigned IPA
+      - name: Package IPA
         run: |
-          cd ios
           mkdir -p output
+          cd ios
           xcodebuild -exportArchive \
-            -archivePath $GITHUB_WORKSPACE/build/App.xcarchive \
-            -exportPath output \
-            -exportOptionsPlist exportOptions.plist \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath ../output \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload IPA as an Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Unsigned IPA
+        uses: actions/upload-artifact@v3
         with:
-          name: Unsigned-IPA
-          path: ios/output/*.ipa
+          name: unsigned-ipa
+          path: output
