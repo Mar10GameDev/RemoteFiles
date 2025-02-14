@@ -36,12 +36,14 @@ jobs:
           sudo gem install cocoapods
           cd ios && pod install && cd ..
 
-      - name: Regenerate Podfile
+      - name: Regenerate Podfile and Set iOS 12.0 Target
         run: |
           rm -f ios/Podfile ios/Podfile.lock
           flutter clean
           flutter pub get
-          cd ios && pod install --verbose && cd ..
+          echo "Setting iOS deployment target to 12.0..."
+          sed -i '' 's/# platform :ios, .*/platform :ios, '12.0'/' ios/Podfile
+          cd ios && pod install --verbose && cd .
 
       - name: Set Up Xcode
         run: |
